@@ -222,8 +222,8 @@
         ;; --------------------------------------------------
         ;; Menü-Events zuweisen ...
         ;; --------------------------------------------------
-        (connect menu-file-new  "triggered()" (button-click))
-        (connect menu-file-exit "triggered()" (button-click))
+        (connect menu-file-new  "triggered()" #'button-click)
+        (connect menu-file-exit "triggered()" #'button-click)
         
         ;; --------------------------------------------------
         ;; last but not least: add menuBar to form ...
@@ -265,7 +265,7 @@
         ;; --------------------------------------------------
         ;; Größenanpassungen vornehmen
         ;; --------------------------------------------------
-        (#_resize main-window 640 480)
+        (#_resize main-window 540 380)
         (#_resize editfield   480  26)
         (#_resize textview    500 200)
         (#_resize button      100  32)
@@ -273,7 +273,7 @@
         ;; --------------------------------------------------
         ;; Button Event zuweisen ...
         ;; --------------------------------------------------
-        (connect button "clicked()" (button-click))
+        (connect button "clicked()" #'button-click)
         
         ;; --------------------------------------------------
         ;; sanity: Objekte sichtbar machen/darstellen ...
