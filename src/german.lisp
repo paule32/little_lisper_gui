@@ -12,6 +12,7 @@
 (defpackage  :my-packet
     (:use    :common-lisp)
     (:export :search-word)
+    (:export :writeln)
 )
 (in-package :my-packet)
 ;; ---------------------------------------------------------------------------
@@ -127,6 +128,9 @@
 (in-package :lispide)
 (named-readtables:in-readtable :qt)
 
+(defun button-click ()
+    (my-packet:writeln (list "hhhhh")))
+
 ;; ---------------------------------------------------------------------------
 ;; start() ist unsere Haupt-Einstiegs-Routine ...
 ;; ---------------------------------------------------------------------------
@@ -135,10 +139,32 @@
             ;; --------------------------------------------------
             ;; Instanzen der Formular-Elemente erstellen ...
             ;; --------------------------------------------------
+            (menubar     (#_new QMenuBar))
+            (menu-file   (#_new QMenu "File"))
+            (menu-help   (#_new QMenu "Edit"))
+            
+            ;; menu - new
+            (menu-file-new         (#_new QWidgetAction menu-file))
+            (menu-file-new-widget  (#_new QWidget))
+            (menu-file-new-layout  (#_new QHBoxLayout menu-file-new-widget))
+            ;;
+            (menu-file-new-label   (#_new QLabel "New..."))
+            
+            
+            ;; menu - exit
+            (menu-file-exit        (#_new QWidgetAction menu-file))
+            (menu-file-exit-widget (#_new QWidget))
+            (menu-file-exit-layout (#_new QHBoxLayout menu-file-exit-widget))
+            ;;
+            (menu-file-exit-label  (#_new QLabel "Exit"))
+            
+            
             (font        (#_new QFont "Consolas"))
             (widget      (#_new QWidget))
             
-            (label       (#_new QLabel "Please type a word:"))
+            (label-out   (#_new QLabel "Processed output:"))
+            (label-in    (#_new QLabel "Please type a word:"))
+            
             (editfield   (#_new QLineEdit "hallo"))
             (textview    (#_new QTextEdit))
             
@@ -152,44 +178,110 @@
         (#_setCentralWidget main-window  widget)
         
         ;; --------------------------------------------------
+        ;; Schriftart setzen der Menu-Einträge ...
+        ;; --------------------------------------------------
+        (#_setFont menubar   font)
+        (#_setFont menu-file font)
+        (#_setFont menu-help font)
+        
+        ;; --------------------------------------------------
+        ;; label - new
+        ;; --------------------------------------------------
+        (#_addWidget menu-file-new-layout  menu-file-new-label)
+        (#_setLayout menu-file-new-widget  menu-file-new-layout)
+        ;;
+        (#_setDefaultWidget menu-file-new  menu-file-new-widget)
+        
+        ;; --------------------------------------------------
+        ;; label - exit
+        ;; --------------------------------------------------
+        (#_addWidget menu-file-exit-layout menu-file-exit-label)
+        (#_setLayout menu-file-exit-widget menu-file-exit-layout)
+        ;;
+        (#_setDefaultWidget menu-file-exit menu-file-exit-widget)
+        
+        
+        ;; --------------------------------------------------
+        ;; jedem Menü-Eintrag den gleichen Schriftzug geben:
+        ;; --------------------------------------------------
+        (#_setFont  menu-file-new-label   font)
+        (#_setFont  menu-file-exit-label  font)
+        
+        ;; --------------------------------------------------
+        ;; Untermenüs an das "parent" Menü kleben ...
+        ;; --------------------------------------------------
+        (#_addAction menu-file menu-file-new)
+        (#_addAction menu-file menu-file-exit)
+        
+        ;; --------------------------------------------------
+        ;; "parent" Menüs an die menuBar kleben ...
+        ;; --------------------------------------------------
+        (#_addMenu menubar menu-file)
+        (#_addMenu menubar menu-help)
+        
+        ;; --------------------------------------------------
+        ;; Menü-Events zuweisen ...
+        ;; --------------------------------------------------
+        (connect menu-file-new  "triggered()" (button-click))
+        (connect menu-file-exit "triggered()" (button-click))
+        
+        ;; --------------------------------------------------
+        ;; last but not least: add menuBar to form ...
+        ;; --------------------------------------------------
+        (#_setMenuBar main-window menubar)
+        
+        ;; --------------------------------------------------
         ;; setze die Elemente als Kindwidget des Widget
         ;; --------------------------------------------------
-        (#_setParent label     widget)
-        (#_setParent editfield widget)
-        (#_setParent textview  widget)
-        (#_setParent button    widget)
+        (#_setParent label-out  widget)
+        (#_setParent label-in   widget)
+        
+        (#_setParent editfield  widget)
+        (#_setParent textview   widget)
+        (#_setParent button     widget)
         
         ;; --------------------------------------------------
         ;; Position der Elemente werden statisch vergeben:
         ;; --------------------------------------------------
-        (#_move label     5  5)
-        (#_move editfield 5 25)
-        (#_move textview  5 55)
-        (#_move button   40  5
+        (#_move label-out  5   5)
+        (#_move label-in   5 235)
+        
+        (#_move textview   5  25)
+        (#_move editfield  5 260)
+        (#_move button     5 300)
 
         (#_setPointSize font 11)
         
         ;; --------------------------------------------------
         ;; einheitlicher Festbreiten-Font verwenden ...
         ;; --------------------------------------------------
-        (#_setFont label     font)
-        (#_setFont editfield font)
+        (#_setFont label-out font)
+        (#_setFont label-in  font)
+        
         (#_setFont textview  font)
+        (#_setFont editfield font)
         (#_setFont button    font)
         
         ;; --------------------------------------------------
         ;; Größenanpassungen vornehmen
         ;; --------------------------------------------------
         (#_resize main-window 640 480)
-        (#_resize textview    400 200)
-        (#_resize button      100  25)
+        (#_resize editfield   480  26)
+        (#_resize textview    500 200)
+        (#_resize button      100  32)
+        
+        ;; --------------------------------------------------
+        ;; Button Event zuweisen ...
+        ;; --------------------------------------------------
+        (connect button "clicked()" (button-click))
         
         ;; --------------------------------------------------
         ;; sanity: Objekte sichtbar machen/darstellen ...
         ;; --------------------------------------------------
         (#_show main-window)
         (#_show widget)
-        (#_show label)
+        (#_show label-out)
+        (#_show label-in)
         (#_show editfield)
         (#_show textview)
         (#_show button)
