@@ -11,10 +11,17 @@
 
 (defpackage  :my-packet
     (:use    :common-lisp)
-    (:export :search-word)
-    (:export :writeln)
+    (:export :search-word
+             :writeln
+    )
 )
 (in-package :my-packet)
+;; ---------------------------------------------------------------------------
+;; some global scoped constants, and variables ...
+;; ---------------------------------------------------------------------------
+(defconstant *EXIT-FAILURE* 1)
+(defconstant *EXIT-SUCCESS* 0)
+
 ;; ---------------------------------------------------------------------------
 ;; WriteLn kann für die Ausgabe von Text am Bildschirm genutzt werden. Es wird
 ;; zusätzlich zum Text ein Zeilen-Einzug eingefügt.
@@ -22,9 +29,8 @@
 (defun writeln (&rest args)
     (apply #'format t "~{~a~^ ~}~%" args)
 )
-
 ;; ---------------------------------------------------------------------------
-;; einen kleinen aber feinen Copyright-Banner anzeigen - CODEOFCONDUCT :-D
+;; einen kleinen aber feinen Copyright-Banner anzeigen - CODEOFCONDUCT :)
 ;; ---------------------------------------------------------------------------
 (writeln (list "LISP DUDEN Deutsch v1.0"))
 (writeln (list "(c) 2024 by Jens Kallup - non-profit software"))
@@ -37,13 +43,42 @@
 ;; ---------------------------------------------------------------------------
 (eval-when (:compile-toplevel :load-toplevel :execute) (require :asdf))
 (eval-when (:compile-toplevel :load-toplevel :execute) (require :uiop))
-  
+(eval-when (:compile-toplevel :load-toplevel :execute) (require :cffi))
+
+;; ---------------------------------------------------------------------------
+;; a more robust LISP quit function ...
+;; ---------------------------------------------------------------------------
+(defun my-quit ()
+    (let ((quit-symbol (find-symbol "QUIT" "COMMON-LISP-USER"))
+          (exit-symbol (find-symbol "EXIT" "COMMON-LISP-USER")))
+    (when (and quit-symbol (fboundp quit-symbol))
+          (funcall quit-symbol))
+    (when (and exit-symbol (fboundp exit-symbol))
+          (funcall exit-symbol))
+    (warn "Don't know how to quit!")))
+
 ;; ---------------------------------------------------------------------------
 ;; es wird davon ausgegangen, das die Standard-Installation von QuickLisp sich
 ;; im Benutzer-Verzeichnis auf der default - Festplatte (c:) befindet ...
 ;; ---------------------------------------------------------------------------
 (defvar *user-quicklisp* (merge-pathnames "quicklisp/setup.lisp" (
     user-homedir-pathname)))
+    (if (= (length (namestring *user-quicklisp*)) 0)
+        (progn
+            (writeln (list "error: not found: Quicklist setup.lisp"))
+            (writeln (list "aborted."))
+            (my-quit)
+        )
+    )
+(defvar *user-sqlite3* (namestring (probe-file "sqlite3.dll")))
+    (if (= (length *user-sqlite3*) 0)
+        (progn
+            (writeln (list "error: not found: sqlite3.dll"))
+            (writeln (list "aborted."))
+            (my-quit)
+        )
+    )
+    (writeln (list (probe-file (namestring *user-quicklisp*))))
     (load *user-quicklisp*)
 ;; ---------------------------------------------------------------------------
 ;; lade setup.lisp, und öffne Packete - Ausgabe wird an "null" weitergeleitet
@@ -51,11 +86,18 @@
 ;; ---------------------------------------------------------------------------
 (uiop:with-null-output (*standard-output*)
     (progn
-        (ql:quickload :cl-ppcre)
-        (ql:quickload :qt)
-        (ql:quickload :qt-libs)
+        (ql:quickload :cffi)        ; sqlite3.dll
+        
+        (cffi:define-foreign-library sqlite3 (t (:default "sqlite3")))
+        (cffi:load-foreign-library 'sqlite3)
+
+        (ql:quickload :cl-ppcre)    ; regular expression regex
+        (ql:quickload :qt)          ; qt5
+        (ql:quickload :qt-libs)     ; qt5 framework .dll files
+        (ql:quickload :sqlite)      ; sqlite3.dll
     )
 )
+(writeln (list (probe-file "sqlite3.dll")))
 ;; ---------------------------------------------------------------------------
 ;; Link für Hörbeispiele auf wiki media ...
 ;; ---------------------------------------------------------------------------
@@ -159,6 +201,9 @@
             (menu-file-exit-label  (#_new QLabel "Exit"))
             
             
+            ;; --------------------------------------------------
+            ;; controls on left side ...
+            ;; --------------------------------------------------
             (font        (#_new QFont "Consolas"))
             (widget      (#_new QWidget))
             
@@ -169,6 +214,22 @@
             (textview    (#_new QTextEdit))
             
             (button      (#_new QPushButton "Eval"))
+            
+            
+            ;; --------------------------------------------------
+            ;; controls on right side ...
+            ;; --------------------------------------------------
+            (label-eval  (#_new QLabel "Evaluation Code:"))
+            (tab-eval    (#_new QTabBar widget))
+            ;;
+            (tab-eval-content-1 (#_new QWidget tab-eval))
+            (tab-eval-content-2 (#_new QWidget tab-eval))
+            ;;
+            (textview-eval-1  (#_new QTextEdit tab-eval-content-1))
+            (textview-eval-2  (#_new QTextEdit tab-eval-content-2))
+            ;;
+            (button-eval      (#_new QPushButton "Eval"))
+            
             (main-window (#_new QMainWindow))
         )
         
@@ -204,8 +265,8 @@
         ;; --------------------------------------------------
         ;; jedem Menü-Eintrag den gleichen Schriftzug geben:
         ;; --------------------------------------------------
-        (#_setFont  menu-file-new-label   font)
-        (#_setFont  menu-file-exit-label  font)
+        (#_setFont  menu-file-new-label  font)
+        (#_setFont  menu-file-exit-label font)
         
         ;; --------------------------------------------------
         ;; Untermenüs an das "parent" Menü kleben ...
@@ -233,12 +294,31 @@
         ;; --------------------------------------------------
         ;; setze die Elemente als Kindwidget des Widget
         ;; --------------------------------------------------
-        (#_setParent label-out  widget)
-        (#_setParent label-in   widget)
+        (#_setParent label-out     widget)
+        (#_setParent label-in      widget)
+        ;;
+        (#_setParent editfield     widget)
+        (#_setParent textview      widget)
+        (#_setParent button        widget)
         
-        (#_setParent editfield  widget)
-        (#_setParent textview   widget)
-        (#_setParent button     widget)
+        
+        (#_setParent label-eval    widget)
+        (#_setParent button-eval   widget)
+        ;;
+        (let ((tab-1 (#_addTab tab-eval "Eval" )))
+             (connect tab-eval "currentChanged()" #'button-click) ;;((lambda () (
+                ;;(#_hide textview-eval-2)
+                ;;(#_show textview-eval-1)
+             ;;))))
+        )
+        (let ((tab-2 (#_addTab tab-eval "Debug")))
+             ;;(connect tab-eval "currentChanged()" ((lambda () (
+             ;;   (#_hide textview-eval-1)
+             ;;   (#_show textview-eval-2)
+             ;;))))
+        )
+        ;;
+        
         
         ;; --------------------------------------------------
         ;; Position der Elemente werden statisch vergeben:
@@ -249,6 +329,10 @@
         (#_move textview   5  25)
         (#_move editfield  5 260)
         (#_move button     5 300)
+        
+        (#_move label-eval   400   5)
+        (#_move tab-eval   400  25)
+        (#_move button-eval  400 300)
 
         (#_setPointSize font 11)
         
@@ -262,13 +346,20 @@
         (#_setFont editfield font)
         (#_setFont button    font)
         
+        (#_setFont label-eval  font)
+        (#_setFont tab-eval    font)
+        (#_setFont button-eval font)
+        
         ;; --------------------------------------------------
         ;; Größenanpassungen vornehmen
         ;; --------------------------------------------------
-        (#_resize main-window 540 380)
-        (#_resize editfield   480  26)
-        (#_resize textview    500 200)
+        (#_resize main-window 800 400)
+        (#_resize editfield   380  26)
+        (#_resize textview    380 200)
         (#_resize button      100  32)
+        ;;
+        (#_resize tab-eval 400 260)
+        (#_resize button-eval 100  32)
         
         ;; --------------------------------------------------
         ;; Button Event zuweisen ...
@@ -285,6 +376,11 @@
         (#_show editfield)
         (#_show textview)
         (#_show button)
+        
+        (#_show tab-eval)
+        (#_show label-eval)
+        ;;(#_show textview-eval)
+        (#_show button-eval)
         
         ;; --------------------------------------------------
         ;; Anwendungs - Loop ...
